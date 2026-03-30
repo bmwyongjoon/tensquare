@@ -176,6 +176,14 @@
     .stats-tab { flex:1; padding:9px 0; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:8px; color:#555; font-size:13px; font-weight:bold; cursor:pointer; transition:all 0.2s; font-family:'Courier New',monospace; }
     .stats-tab:hover { border-color:#444; color:#aaa; }
     .stats-tab.selected { background:#0d2018; border-color:#00e676; color:#00e676; }
+    /* ── 게임 모드 선택 ── */
+    .gamemode-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; width:100%; margin-bottom:28px; }
+    .gamemode-btn { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:12px; padding:14px 6px; cursor:pointer; transition:all 0.2s; display:flex; flex-direction:column; align-items:center; gap:5px; }
+    .gamemode-btn:hover, .gamemode-btn.selected { border-color:#4fc3f7; background:#001a2e; box-shadow:0 0 12px #4fc3f733; }
+    .gamemode-btn .gm-icon { font-size:22px; }
+    .gamemode-btn .gm-label { font-size:11px; font-weight:bold; color:#fff; text-align:center; line-height:1.3; }
+    .gamemode-btn.selected .gm-label { color:#4fc3f7; }
+    .gamemode-btn.selected { border-color:#4fc3f7; }
 </style>
 </head>
 <body>
@@ -220,6 +228,22 @@
             </div>
             <div class="ai-slots" id="ai-slots"></div>
             <div class="ai-info" id="ai-info">슬롯을 눌러 AI ↔ 인간 전환</div>
+        </div>
+
+        <div class="section-label">// 게임 모드</div>
+        <div class="gamemode-grid">
+            <div class="gamemode-btn selected" id="gm-classic" onclick="selectGameMode('classic')">
+                <div class="gm-icon">🎯</div>
+                <div class="gm-label">클래식</div>
+            </div>
+            <div class="gamemode-btn" id="gm-limit3" onclick="selectGameMode('limit3')">
+                <div class="gm-icon">3️⃣</div>
+                <div class="gm-label">숫자 3개<br>제한</div>
+            </div>
+            <div class="gamemode-btn" id="gm-near100" onclick="selectGameMode('near100')">
+                <div class="gm-icon">💯</div>
+                <div class="gm-label">100<br>근접</div>
+            </div>
         </div>
 
         <button class="start-btn" onclick="startGame()">▶ GAME START</button>
@@ -288,6 +312,12 @@
         <button class="stats-tab" onclick="selectStatsTab(2)">2인</button>
         <button class="stats-tab" onclick="selectStatsTab(3)">3인</button>
         <button class="stats-tab" onclick="selectStatsTab(4)">4인</button>
+    </div>
+    <div class="stats-tab-row" id="stats-mode-tabs" style="margin-top:-8px;">
+        <button class="stats-tab selected" onclick="selectStatsModeTab('all')" style="font-size:11px;">전체모드</button>
+        <button class="stats-tab" onclick="selectStatsModeTab('classic')" style="font-size:11px;">클래식</button>
+        <button class="stats-tab" onclick="selectStatsModeTab('limit3')" style="font-size:11px;">3개제한</button>
+        <button class="stats-tab" onclick="selectStatsModeTab('near100')" style="font-size:11px;">100근접</button>
     </div>
     <div class="stats-sub" id="stats-sub">전체 게임 기록</div>
     <div id="stats-content"></div>
@@ -402,6 +432,14 @@
 // ══ 메인화면 로직 ══
 var selectedMode = 3;
 var aiSlots = [false, true, true, true];
+var selectedGameMode = 'classic'; // 'classic' | 'limit3' | 'near100'
+
+function selectGameMode(mode) {
+    selectedGameMode = mode;
+    ['classic','limit3','near100'].forEach(function(m) {
+        document.getElementById('gm-' + m).classList.toggle('selected', m === mode);
+    });
+}
 
 function selectMode(n) {
     selectedMode = n;
@@ -453,6 +491,7 @@ function updateModeSubs() {
 
 function startGame() {
     totalPlayers = selectedMode;
+    gameMode = selectedGameMode; // 게임 모드 확정
     isAI = [];
     playerNames = [];
     var humanCount = 1;
@@ -557,9 +596,10 @@ var WINS_TO_WIN = 3;
 var totalWins = [0, 0, 0, 0];
 var currentRound = 1;
 var totalPlayers = 4;
+var gameMode = 'classic'; // 'classic' | 'limit3' | 'near100'
 var deck = [], discardPile = [];
 var boards, currentPlayer, currentCard, isGameOver;
-var playerHands = []; // 각 플레이어의 손패 배열
+var playerHands = [];
 var roundPlayerOrder = [];
 var passCount = 0;
 
@@ -762,6 +802,8 @@ function canPlaceBasic(b, cIdx, val) {
     var next  = (cIdx < 9) ? b[cIdx + 1] : undefined;
     if (cIdx === 9 && isOp(val)) return false;
     if (cIdx === 0 && isOp(val) && val !== '-') return false;
+    // ❌ 100 근접 모드: 음수 결과 방지 — 맨 앞 - 금지
+    if (cIdx === 0 && val === '-' && gameMode === 'near100') return false;
     if (isOp(val)) {
         if (prev !== undefined && isOp(prev) && val !== '-') return false;
         if (val === '-' && prev !== undefined && prev === '-') return false;
@@ -784,6 +826,19 @@ function canPlaceBasic(b, cIdx, val) {
         if (val === 0 && cIdx === 8 && isOp(prev)) return false;
         // ❌ ÷ - 0 금지: 앞이 -이고 그 앞이 ÷이면 결국 ÷(-0) = ÷0
         if (val === 0 && prev === '-' && prev2 === '÷') return false;
+
+        // ❌ 숫자 3개 제한 모드: 연속된 숫자가 이미 3개이면 배치 불가
+        if (gameMode === 'limit3') {
+            // 현재 위치 기준으로 연속 숫자 구간 길이 계산
+            var runLen = 1; // 현재 카드 포함
+            // 왼쪽으로 연속 숫자 카운트
+            var li = cIdx - 1;
+            while (li >= 0 && b[li] !== null && typeof b[li] === 'number') { runLen++; li--; }
+            // 오른쪽으로 연속 숫자 카운트
+            var ri = cIdx + 1;
+            while (ri < 10 && b[ri] !== null && typeof b[ri] === 'number') { runLen++; ri++; }
+            if (runLen > 3) return false;
+        }
     }
     return true;
 }
@@ -1057,15 +1112,16 @@ function getNextPlayer(cur) {
 }
 
 function setStatusForPlayer() {
+    var modeBadge = gameMode === 'limit3' ? ' [3개제한]' : gameMode === 'near100' ? ' [100근접]' : '';
     var s = document.getElementById('status');
     if (isAI[currentPlayer]) {
-        s.innerText = playerNames[currentPlayer] + ' 차례...';
+        s.innerText = playerNames[currentPlayer] + ' 차례...' + modeBadge;
         s.style.background = '#ff9800';
     } else if (currentPlayer === 0) {
-        s.innerText = '내 차례 — 손패에서 카드를 선택하세요!';
+        s.innerText = '내 차례 — 손패에서 카드를 선택하세요!' + modeBadge;
         s.style.background = '#00e676';
     } else {
-        s.innerText = playerNames[currentPlayer] + '의 차례 — 카드를 선택하세요!';
+        s.innerText = playerNames[currentPlayer] + '의 차례 — 카드를 선택하세요!' + modeBadge;
         s.style.background = '#4fc3f7';
     }
     for (var p = 0; p < totalPlayers; p++)
@@ -1177,7 +1233,13 @@ function calc(b) {
     try {
         if (/\/0/.test(s)) return 0;
         var r = eval(s);
-        return isFinite(r) ? r : 0;
+        if (!isFinite(r)) return 0;
+        if (gameMode === 'near100') {
+            // 100 초과 또는 음수면 0점, 아니면 실제값 그대로 (100에 가까울수록 높음)
+            if (r > 100 || r < 0) return 0;
+            return r;
+        }
+        return r;
     } catch(e) { return 0; }
 }
 
@@ -1227,6 +1289,7 @@ function recordRoundStat(res) {
         date: new Date().toISOString(),
         players: totalPlayers,
         round: currentRound,
+        gameMode: gameMode,
         results: res.map(function(r) {
             return {
                 name: r.n, score: r.s, expr: r.expr,
@@ -1239,12 +1302,22 @@ function recordRoundStat(res) {
     });
 }
 
-var currentStatsTab = 0; // 0=전체, 2=2인, 3=3인, 4=4인
+var currentStatsTab = 0;
+var currentStatsModeTab = 'all';
 
 function selectStatsTab(mode) {
     currentStatsTab = mode;
-    document.querySelectorAll('.stats-tab').forEach(function(t, i) {
+    document.querySelectorAll('#stats-tabs .stats-tab').forEach(function(t, i) {
         var modes = [0, 2, 3, 4];
+        t.classList.toggle('selected', modes[i] === mode);
+    });
+    renderStats();
+}
+
+function selectStatsModeTab(mode) {
+    currentStatsModeTab = mode;
+    document.querySelectorAll('#stats-mode-tabs .stats-tab').forEach(function(t, i) {
+        var modes = ['all','classic','limit3','near100'];
         t.classList.toggle('selected', modes[i] === mode);
     });
     renderStats();
@@ -1274,8 +1347,14 @@ function renderStats() {
         ? allStats
         : allStats.filter(function(s) { return s.players === currentStatsTab; });
 
+    // 게임 모드 필터링
+    if (currentStatsModeTab !== 'all') {
+        stats = stats.filter(function(s) { return s.gameMode === currentStatsModeTab; });
+    }
+
     var tabLabel = currentStatsTab === 0 ? '전체' : currentStatsTab + '인';
-    var modeNote = currentStatsTab === 0 ? '' : ' (' + currentStatsTab + '인 게임만)';
+    var modeLabelMap = {all:'전체모드', classic:'클래식', limit3:'3개제한', near100:'100근접'};
+    var modeNote = currentStatsModeTab === 'all' ? '' : ' · ' + modeLabelMap[currentStatsModeTab];
 
     if (allStats.length === 0) {
         content.innerHTML = '<div class="stats-empty">아직 기록된 게임이 없어요!<br>게임을 플레이하면 자동으로 통계가 쌓여요 😊</div>';
