@@ -820,6 +820,8 @@ function canPlaceBasic(b, cIdx, val) {
     }
     if (typeof val === 'number') {
         if (cIdx > 0 && prev === undefined) return false;
+        // ❌ 맨 앞 칸(0번)에 0 배치 금지 — 리딩 제로
+        if (cIdx === 0 && val === 0) return false;
         if (prev === 0 && prev2 !== undefined && isOp(prev2)) return false;
         if (cIdx === 1 && prev === 0) return false;
         if (val === 0 && prev === '÷') return false;
