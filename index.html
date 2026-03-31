@@ -271,7 +271,7 @@
     <div class="rules-section">
         <div class="rules-section-title">▶ 게임 진행 (v2)</div>
         <p>1. 연산 카드 1장씩 뽑아 선공 결정 — × 선공, + 2번째, − 3번째, ÷ 4번째</p>
-        <p>2. 게임 시작 시 각 플레이어에게 <b>숫자카드 6장 + 연산카드 4장 = 10장</b> 배분 (4인은 숫자 4장 + 연산 6장)</p>
+        <p>2. 게임 시작 시 각 플레이어에게 <b>숫자카드 6장 + 연산카드 4장 = 10장</b> 배분 (4인은 숫자 5장 + 연산 5장)</p>
         <p>3. 내 차례에 손패에서 원하는 카드 1장을 선택</p>
         <p>4. 선택한 카드를 <b>자신 또는 상대방</b> 보드의 빈 칸에 배치</p>
         <p>5. <b>손패의 모든 카드</b>가 어느 보드에도 놓을 수 없으면</p>
@@ -757,7 +757,7 @@ function dealInitialHand() {
 
     // 인원별 손패 비율
     var numNeeded = 6, opNeeded = 4;
-    if (totalPlayers === 4) { numNeeded = 4; opNeeded = 6; }
+    if (totalPlayers === 4) { numNeeded = 5; opNeeded = 5; }
 
     // 먼저 덱에서 분류
     var tempDeck = deck.slice();
@@ -864,9 +864,12 @@ function canPlace(pIdx, cIdx, val) {
 
 // 특정 카드가 어느 보드에든 놓을 수 있는지 확인
 function hasValidMoveForCard(card) {
-    for (var p = 0; p < totalPlayers; p++)
+    var idxs = isOvertimeMode ? overtimePlayerIdxs : (function(){
+        var a = []; for(var i=0;i<totalPlayers;i++) a.push(i); return a;
+    })();
+    for (var i = 0; i < idxs.length; i++)
         for (var c = 0; c < 10; c++)
-            if (canPlace(p, c, card)) return true;
+            if (canPlace(idxs[i], c, card)) return true;
     return false;
 }
 
@@ -1124,8 +1127,11 @@ function setStatusForPlayer() {
         s.innerText = playerNames[currentPlayer] + '의 차례 — 카드를 선택하세요!' + modeBadge;
         s.style.background = '#4fc3f7';
     }
-    for (var p = 0; p < totalPlayers; p++)
-        document.getElementById('board-' + p).classList.toggle('current-turn', p === currentPlayer);
+    var highlightIdxs = isOvertimeMode ? overtimePlayerIdxs : (function(){
+        var a = []; for(var i=0;i<totalPlayers;i++) a.push(i); return a;
+    })();
+    for (var i = 0; i < 4; i++)
+        document.getElementById('board-' + i).classList.toggle('current-turn', i === currentPlayer && highlightIdxs.indexOf(i) !== -1);
 }
 
 // ══ AI 턴 ══
@@ -1164,10 +1170,14 @@ function aiTurn() {
 
     // 최선 수 탐색
     var bestP = -1, bestC = -1, bestCard = null, bestCardIdx = -1, maxS = -Infinity;
+    var searchIdxs = isOvertimeMode ? overtimePlayerIdxs : (function(){
+        var a = []; for(var i=0;i<totalPlayers;i++) a.push(i); return a;
+    })();
     for (var hi = 0; hi < hand.length; hi++) {
         var card = hand[hi];
         if (!hasValidMoveForCard(card)) continue;
-        for (var p = 0; p < totalPlayers; p++) {
+        for (var si = 0; si < searchIdxs.length; si++) {
+            var p = searchIdxs[si];
             for (var c = 0; c < 10; c++) {
                 if (canPlace(p, c, card)) {
                     var copy = boards[p].slice();
@@ -1663,20 +1673,22 @@ function startOvertimeRound(participantIdxs) {
         el.style.display = (participantIdxs.indexOf(b) !== -1) ? '' : 'none';
     }
 
-    // totalPlayers를 연장전 인원으로 임시 교체
+    // ✅ totalPlayers는 참가자 수로 교체하되, 보드 순회는 overtimePlayerIdxs 기준으로
     totalPlayers = participantIdxs.length;
 
-    // playerNames, isAI를 연장전 참가자 순서로 재매핑
-    // 인덱스는 유지하되 roundPlayerOrder만 새로 설정
+    // ✅ gameMode 유지 (연장전에도 동일 모드 적용)
+    // gameMode는 변경하지 않음
+
     currentRound++;
     deck = buildDeck();
     discardPile = [];
+    // ✅ boards는 원래 4칸 유지 (인덱스 기반 접근)
     boards = Array.from({length: 4}, function() { return Array(10).fill(null); });
     currentCard = null;
     isGameOver = false;
     passCount = 0;
 
-    // 손패 재배분 (참가자만)
+    // 손패 재배분 (참가자만, 나머지는 빈 배열)
     playerHands = [[], [], [], []];
     for (var pi = 0; pi < participantIdxs.length; pi++) {
         playerHands[participantIdxs[pi]] = dealInitialHand();
@@ -1745,29 +1757,34 @@ function showFinalResult(res) {
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('result-screen').style.display = 'block';
 
-    // 연장전이었으면 실제 전체 인원 기준으로 표시
-    var allCount = isOvertimeMode ? overtimePlayerIdxs.length : totalPlayers;
-    var displayCount = isOvertimeMode ? 4 : totalPlayers; // 원래 인원 알 방법이 없으므로 totalWins 기준으로
-
     document.getElementById('champion-area').innerHTML =
         '<div class="champion-banner"><div class="crown">👑</div>' +
         '<div class="name">' + res[0].n + '</div>' +
         '<div class="sub">' + (isOvertimeMode ? '연장전 승리!' : WINS_TO_WIN + '판 선취 달성!') + '</div></div>';
 
-    // totalWins 기준으로 전체 순위 표시
+    // 원래 인원 기준으로 전체 순위 표시
+    var originalTotal = isOvertimeMode ? 4 : totalPlayers;
     var allIdx = [];
-    for (var i = 0; i < 4; i++) if (totalWins[i] > 0 || playerNames[i]) allIdx.push(i);
-    // 실제 참가한 플레이어만
-    allIdx = allIdx.filter(function(i) { return i < (isOvertimeMode ? 4 : totalPlayers); });
+    for (var i = 0; i < originalTotal; i++) allIdx.push(i);
 
-    var sorted = allIdx.sort(function(a,b) { return totalWins[b] - totalWins[a]; });
+    var sorted = allIdx.slice().sort(function(a,b) { return totalWins[b] - totalWins[a]; });
     var medals = ['🥇', '🥈', '🥉', '4위'];
+
+    // res에서 수식 정보 맵 만들기
+    var exprMap = {};
+    res.forEach(function(r) { exprMap[r.idx] = { expr: r.expr, score: r.s }; });
+
     document.getElementById('result-list').innerHTML = sorted.map(function(pi, rank) {
         var gems = '';
         for (var g = 0; g < WINS_TO_WIN; g++)
             gems += '<span class="win-gem' + (g < totalWins[pi] ? ' earned' : '') + '" style="display:inline-block;margin-right:3px;"></span>';
+        var exprInfo = exprMap[pi]
+            ? '<div style="color:#00e676;font-size:11px;font-family:monospace;margin-top:3px;">' +
+              exprMap[pi].expr + ' = ' + formatNum(exprMap[pi].score.toFixed(1)) + '</div>'
+            : '';
         return '<div style="background:#1e1e1e; padding:14px; margin-top:10px; border-radius:10px; border-left:5px solid ' + (rank===0?'#FFD700':'#00e676') + '; text-align:left;">' +
             '<strong>' + medals[rank] + ' ' + playerNames[pi] + '</strong>' +
+            exprInfo +
             '<div style="margin-top:6px;">' + gems + '</div>' +
             '<div style="color:#aaa; font-size:12px; margin-top:4px;">1등 ' + totalWins[pi] + '회</div></div>';
     }).join('');
