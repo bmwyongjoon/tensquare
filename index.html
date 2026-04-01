@@ -822,6 +822,10 @@ function canPlaceBasic(b, cIdx, val) {
         if (cIdx > 0 && prev === undefined) return false;
         // ❌ 맨 앞 칸(0번)에 0 배치 금지 — 리딩 제로
         if (cIdx === 0 && val === 0) return false;
+        // ❌ 0 뒤에 이미 숫자가 있으면 배치 금지 — 리딩 제로 (예: _ 0 이미있는숫자)
+        if (val === 0 && next !== undefined && typeof next === 'number') return false;
+        // ❌ 0 앞에 연산자, 0 뒤에 숫자가 올 수 있는 상황이면 금지
+        // (next가 null이어도 그 다음에 숫자가 올 수 있으면 막아야 하지만 wouldCreateDeadSlot에서 처리)
         if (prev === 0 && prev2 !== undefined && isOp(prev2)) return false;
         if (cIdx === 1 && prev === 0) return false;
         if (val === 0 && prev === '÷') return false;
@@ -853,6 +857,20 @@ function wouldCreateDeadSlot(b, cIdx, val) {
         if (sim[i] !== null) continue;
         var anyValid = ALL_CARDS.some(function(card) { return canPlaceBasic(sim, i, card); });
         if (!anyValid) return true;
+    }
+
+    // ❌ 추가 검사: 빈 칸 사이에 0이 있어서 나중에 리딩 제로가 불가피한 경우
+    // 예: - _ 0 × → 빈칸에 숫자가 오면 -X0 구조가 되어 리딩 제로
+    for (var i = 0; i < 10; i++) {
+        if (sim[i] !== 0) continue; // 0인 칸만 체크
+        // 0 앞에 빈 칸이 있고, 그 앞이 연산자인 경우
+        if (i > 0 && sim[i-1] === null) {
+            // 빈 칸(i-1) 앞이 연산자거나 0번 칸이면 리딩 제로 발생 불가피
+            var prevOfBlank = (i > 1) ? sim[i-2] : undefined;
+            if (i === 1 || (prevOfBlank !== undefined && isOp(prevOfBlank))) {
+                return true; // 어떤 숫자를 넣어도 X0 or 00 구조
+            }
+        }
     }
     return false;
 }
