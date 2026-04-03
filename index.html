@@ -458,17 +458,14 @@ function renderAiSlots() {
     for (var i = 0; i < selectedMode; i++) {
         (function(idx) {
             var slot = document.createElement('div');
-            var isHuman = idx === 0;
-            slot.className = 'ai-slot' + (isHuman ? ' human' : (aiSlots[idx] ? ' active' : ''));
-            slot.innerHTML = isHuman ? '🧑' : (aiSlots[idx] ? '🤖' : '🧑');
-            slot.title = isHuman ? '나 (플레이어)' : (aiSlots[idx] ? 'AI' : '인간 플레이어');
-            if (!isHuman) {
-                slot.onclick = function() {
-                    aiSlots[idx] = !aiSlots[idx];
-                    renderAiSlots();
-                    updateModeSubs();
-                };
-            }
+            slot.className = 'ai-slot' + (aiSlots[idx] ? ' active' : ' human');
+            slot.innerHTML = aiSlots[idx] ? '🤖' : '🧑';
+            slot.title = aiSlots[idx] ? 'AI' : (idx === 0 ? '나 (플레이어)' : '인간 플레이어');
+            slot.onclick = function() {
+                aiSlots[idx] = !aiSlots[idx];
+                renderAiSlots();
+                updateModeSubs();
+            };
             container.appendChild(slot);
         })(i);
     }
@@ -494,16 +491,15 @@ function startGame() {
     gameMode = selectedGameMode; // 게임 모드 확정
     isAI = [];
     playerNames = [];
-    var humanCount = 1;
+    var humanCount = 0;
     for (var i = 0; i < totalPlayers; i++) {
         var isAiSlot = aiSlots[i];
         isAI.push(isAiSlot);
-        if (i === 0) {
-            playerNames.push('나');
-        } else if (isAiSlot) {
-            playerNames.push('AI ' + i);
+        if (isAiSlot) {
+            playerNames.push('AI ' + (i + 1));
         } else {
-            playerNames.push('플레이어 ' + (++humanCount));
+            humanCount++;
+            playerNames.push(humanCount === 1 ? '나' : '플레이어 ' + humanCount);
         }
     }
     for (var b = 0; b < 4; b++) {
@@ -822,10 +818,12 @@ function canPlaceBasic(b, cIdx, val) {
         if (cIdx > 0 && prev === undefined) return false;
         // ❌ 맨 앞 칸(0번)에 0 배치 금지 — 리딩 제로
         if (cIdx === 0 && val === 0) return false;
-        // ❌ 0 뒤에 이미 숫자가 있으면 배치 금지 — 리딩 제로 (예: _ 0 이미있는숫자)
-        if (val === 0 && next !== undefined && typeof next === 'number') return false;
-        // ❌ 0 앞에 연산자, 0 뒤에 숫자가 올 수 있는 상황이면 금지
-        // (next가 null이어도 그 다음에 숫자가 올 수 있으면 막아야 하지만 wouldCreateDeadSlot에서 처리)
+        // ❌ 연산자 바로 뒤 0 뒤에 숫자 금지 — 리딩 제로 (예: + 0 2 → +02)
+        // prev가 연산자이거나 0번칸일 때만 적용 (1 0 2 = 102 는 정상)
+        if (val === 0 && next !== undefined && typeof next === 'number') {
+            if (cIdx === 0) return false; // 맨 앞 0 뒤에 숫자
+            if (prev !== undefined && isOp(prev)) return false; // 연산자 뒤 0 뒤에 숫자
+        }
         if (prev === 0 && prev2 !== undefined && isOp(prev2)) return false;
         if (cIdx === 1 && prev === 0) return false;
         if (val === 0 && prev === '÷') return false;
