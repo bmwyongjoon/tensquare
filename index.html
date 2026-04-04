@@ -670,8 +670,8 @@ function resolveFirstPlayer() {
     btn.innerText = '▶ ' + playerNames[firstPlayer] + ' 선공으로 시작!';
     btn.onclick = function() {
         document.getElementById('round-overlay').classList.remove('show');
-        roundPlayerOrder = order.map(function(o) { return o.pIdx; });
-        initRound(firstPlayer);
+        var newOrder = order.map(function(o) { return o.pIdx; });
+        initRound(firstPlayer, newOrder);
     };
     var resultHtml = '<div style="margin-top:12px;padding:10px;background:#0d2018;border-radius:8px;text-align:center;">';
     order.forEach(function(o, i) {
@@ -798,8 +798,8 @@ function canPlaceBasic(b, cIdx, val) {
     var next  = (cIdx < 9) ? b[cIdx + 1] : undefined;
     if (cIdx === 9 && isOp(val)) return false;
     if (cIdx === 0 && isOp(val) && val !== '-') return false;
-    // ❌ 100 근접 모드: 음수 결과 방지 — 맨 앞 - 금지
-    if (cIdx === 0 && val === '-' && gameMode === 'near100') return false;
+    // ❌ 100 근접 모드: 음수 결과 방지 — 맨 앞 - 금지 (제거: 방해 전략으로 허용)
+    // near100도 맨 앞 -는 허용 (상대 보드 방해 전략)
     if (isOp(val)) {
         if (prev !== undefined && isOp(prev) && val !== '-') return false;
         if (val === '-' && prev !== undefined && prev === '-') return false;
@@ -816,8 +816,8 @@ function canPlaceBasic(b, cIdx, val) {
     }
     if (typeof val === 'number') {
         if (cIdx > 0 && prev === undefined) return false;
-        // ❌ 맨 앞 칸(0번)에 0 배치 금지 — 리딩 제로
-        if (cIdx === 0 && val === 0) return false;
+        // ❌ 맨 앞 칸(0번)에 0 배치 — 다음 칸에 숫자가 있으면 리딩 제로라 금지
+        if (cIdx === 0 && val === 0 && next !== undefined && typeof next === 'number') return false;
         // ❌ 연산자 바로 뒤 0 뒤에 숫자 금지 — 리딩 제로 (예: + 0 2 → +02)
         // prev가 연산자이거나 0번칸일 때만 적용 (1 0 2 = 102 는 정상)
         if (val === 0 && next !== undefined && typeof next === 'number') {
