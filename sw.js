@@ -1,5 +1,5 @@
 // 버전 번호 — 코드 수정할 때마다 올려주면 자동 업데이트
-const VERSION = 'v17';
+const VERSION = 'v18';
 const CACHE_NAME = 'tensquare-' + VERSION;
 
 const FILES_TO_CACHE = [
