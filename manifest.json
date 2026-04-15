@@ -1,11 +1,11 @@
 {
-  "name": "Ten Square",
-  "short_name": "TenSquare",
-  "description": "수식 전략 카드 게임",
+  "name": "트레이드인 진단 — BPS 가양",
+  "short_name": "트레이드인",
+  "description": "BMW / MINI 트레이드인 가능 여부 진단",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#111111",
-  "theme_color": "#00e676",
+  "background_color": "#1c3d6e",
+  "theme_color": "#1c3d6e",
   "orientation": "portrait",
   "icons": [
     {
