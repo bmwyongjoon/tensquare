@@ -1,54 +1,30 @@
-// 버전 번호 — 코드 수정할 때마다 올려주면 자동 업데이트
-const VERSION = 'v8';
-const CACHE_NAME = 'tensquare-' + VERSION;
-
-const FILES_TO_CACHE = [
+const CACHE = 'tradein-v3';
+const ASSETS = [
+  './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
-// 설치: 파일 캐시
-self.addEventListener('install', function(e) {
+self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then(function(cache) {
-      return cache.addAll(FILES_TO_CACHE);
-    })
+    caches.open(CACHE).then(c => c.addAll(ASSETS))
   );
   self.skipWaiting();
 });
 
-// 활성화: 이전 버전 캐시 전부 삭제
-self.addEventListener('activate', function(e) {
+self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(function(keys) {
-      return Promise.all(
-        keys.filter(function(key) {
-          return key !== CACHE_NAME;
-        }).map(function(key) {
-          return caches.delete(key);
-        })
-      );
-    })
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    )
   );
   self.clients.claim();
 });
 
-// 요청: 네트워크 우선, 실패 시 캐시 사용
-// (캐시 우선이면 업데이트가 반영 안 될 수 있음)
-self.addEventListener('fetch', function(e) {
+self.addEventListener('fetch', e => {
   e.respondWith(
-    fetch(e.request)
-      .then(function(response) {
-        // 네트워크 성공 시 캐시 업데이트
-        var responseClone = response.clone();
-        caches.open(CACHE_NAME).then(function(cache) {
-          cache.put(e.request, responseClone);
-        });
-        return response;
-      })
-      .catch(function() {
-        // 네트워크 실패 시 캐시에서 가져오기 (오프라인 대응)
-        return caches.match(e.request);
-      })
+    caches.match(e.request).then(cached => cached || fetch(e.request))
   );
 });
