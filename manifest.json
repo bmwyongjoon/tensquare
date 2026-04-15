@@ -1,11 +1,11 @@
 {
-  "name": "트레이드인 진단 — BPS 가양",
-  "short_name": "트레이드인",
-  "description": "BMW / MINI 트레이드인 가능 여부 진단",
+  "name": "Ten Square",
+  "short_name": "TenSquare",
+  "description": "10칸 보드에 수식을 완성해 100을 만들어라!",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#1c3d6e",
-  "theme_color": "#1c3d6e",
+  "background_color": "#F4F8F4",
+  "theme_color": "#2D6A4F",
   "orientation": "portrait",
   "icons": [
     {
